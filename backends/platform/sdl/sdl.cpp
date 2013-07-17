@@ -259,7 +259,9 @@ void OSystem_SDL::initSDL() {
 			error("Could not initialize SDL: %s", SDL_GetError());
 
 		// Enable unicode support if possible
+#ifndef USE_SDL13
 		SDL_EnableUNICODE(1);
+#endif
 
 		_initedSDL = true;
 	}
@@ -293,7 +295,9 @@ void OSystem_SDL::setWindowCaption(const char *caption) {
 		}
 	}
 
+#ifndef USE_SDL13
 	SDL_WM_SetCaption(cap.c_str(), cap.c_str());
+#endif
 }
 
 void OSystem_SDL::quit() {
@@ -462,7 +466,9 @@ void OSystem_SDL::setupIcon() {
 	if (!sdl_surf) {
 		warning("SDL_CreateRGBSurfaceFrom(icon) failed");
 	}
+#ifndef USE_SDL13
 	SDL_WM_SetIcon(sdl_surf, NULL);
+#endif
 	SDL_FreeSurface(sdl_surf);
 	free(icon);
 }

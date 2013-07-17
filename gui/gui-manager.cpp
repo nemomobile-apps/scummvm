@@ -518,8 +518,8 @@ void GuiManager::processEvent(const Common::Event &event, Dialog *const activeDi
 		button = (event.type == Common::EVENT_LBUTTONDOWN ? 1 : 2);
 		time = _system->getMillis(true);
 		if (_lastClick.count && (time < _lastClick.time + kDoubleClickDelay)
-			&& ABS(_lastClick.x - event.mouse.x) < 3
-			&& ABS(_lastClick.y - event.mouse.y) < 3) {
+			&& ABS(_lastClick.x - event.mouse.x) < 30
+			&& ABS(_lastClick.y - event.mouse.y) < 30) {
 				_lastClick.count++;
 		} else {
 			_lastClick.x = event.mouse.x;

@@ -74,6 +74,7 @@ SdlEventSource::~SdlEventSource() {
 		SDL_JoystickClose(_joystick);
 }
 
+#ifndef USE_SDL13
 int SdlEventSource::mapKey(SDLKey key, SDLMod mod, Uint16 unicode) {
 	if (key >= SDLK_F1 && key <= SDLK_F9) {
 		return key - SDLK_F1 + Common::ASCII_F1;
@@ -90,6 +91,7 @@ int SdlEventSource::mapKey(SDLKey key, SDLMod mod, Uint16 unicode) {
 	}
 	return key;
 }
+#endif
 
 void SdlEventSource::processMouseEvent(Common::Event &event, int x, int y) {
 	event.mouse.x = x;
@@ -171,11 +173,14 @@ void SdlEventSource::handleKbdMouse() {
 				_km.y_down_count = 1;
 			}
 
+#ifndef USE_SDL13
 			SDL_WarpMouse((Uint16)_km.x, (Uint16)_km.y);
+#endif
 		}
 	}
 }
 
+#ifndef USE_SDL13
 void SdlEventSource::SDLModToOSystemKeyFlags(SDLMod mod, Common::Event &event) {
 
 	event.kbd.flags = 0;
@@ -202,7 +207,9 @@ void SdlEventSource::SDLModToOSystemKeyFlags(SDLMod mod, Common::Event &event) {
 	if (mod & KMOD_CAPS)
 		event.kbd.flags |= Common::KBD_CAPS;
 }
+#endif
 
+#ifndef USE_SDL13
 Common::KeyCode SdlEventSource::SDLToOSystemKeycode(const SDLKey key) {
 	switch (key) {
 	case SDLK_BACKSPACE: return Common::KEYCODE_BACKSPACE;
@@ -345,6 +352,7 @@ Common::KeyCode SdlEventSource::SDLToOSystemKeycode(const SDLKey key) {
 	default: return Common::KEYCODE_INVALID;
 	}
 }
+#endif
 
 bool SdlEventSource::pollEvent(Common::Event &event) {
 	handleKbdMouse();
@@ -372,6 +380,20 @@ bool SdlEventSource::dispatchSDLEvent(SDL_Event &ev, Common::Event &event) {
 		return handleKeyDown(ev, event);
 	case SDL_KEYUP:
 		return handleKeyUp(ev, event);
+
+        case SDL_FINGERUP:
+		event.type = Common::EVENT_LBUTTONUP;
+                processMouseEvent(event, ev.tfinger.x, ev.tfinger.y);
+                return true;
+        case SDL_FINGERDOWN:
+		event.type = Common::EVENT_LBUTTONDOWN;
+                processMouseEvent(event, ev.tfinger.x, ev.tfinger.y);
+                return true;
+        case SDL_FINGERMOTION:
+                event.type = Common::EVENT_MOUSEMOVE;
+                processMouseEvent(event, ev.tfinger.x, ev.tfinger.y);
+                return true;
+
 	case SDL_MOUSEMOTION:
 		return handleMouseMotion(ev, event);
 	case SDL_MOUSEBUTTONDOWN:
@@ -384,7 +406,7 @@ bool SdlEventSource::dispatchSDLEvent(SDL_Event &ev, Common::Event &event) {
 		return handleJoyButtonUp(ev, event);
 	case SDL_JOYAXISMOTION:
 		return handleJoyAxisMotion(ev, event);
-
+#ifndef USE_SDL13
 	case SDL_VIDEOEXPOSE:
 		if (_graphicsManager)
 			_graphicsManager->notifyVideoExpose();
@@ -394,6 +416,7 @@ bool SdlEventSource::dispatchSDLEvent(SDL_Event &ev, Common::Event &event) {
 		if (_graphicsManager)
 			_graphicsManager->notifyResize(ev.resize.w, ev.resize.h);
 		return false;
+#endif
 
 	case SDL_QUIT:
 		event.type = Common::EVENT_QUIT;
@@ -407,6 +430,7 @@ bool SdlEventSource::dispatchSDLEvent(SDL_Event &ev, Common::Event &event) {
 
 bool SdlEventSource::handleKeyDown(SDL_Event &ev, Common::Event &event) {
 
+#ifndef USE_SDL13
 	SDLModToOSystemKeyFlags(SDL_GetModState(), event);
 
 	// Handle scroll lock as a key modifier
@@ -463,13 +487,15 @@ bool SdlEventSource::handleKeyDown(SDL_Event &ev, Common::Event &event) {
 	event.kbd.keycode = SDLToOSystemKeycode(ev.key.keysym.sym);
 	event.kbd.ascii = mapKey(ev.key.keysym.sym, (SDLMod)ev.key.keysym.mod, (Uint16)ev.key.keysym.unicode);
 
+#endif
+
 	return true;
 }
 
 bool SdlEventSource::handleKeyUp(SDL_Event &ev, Common::Event &event) {
 	if (remapKey(ev, event))
 		return true;
-
+#ifndef USE_SDL13
 	SDLMod mod = SDL_GetModState();
 
 	// Check if this is an event handled by handleKeyDown(), and stop if it is
@@ -513,6 +539,7 @@ bool SdlEventSource::handleKeyUp(SDL_Event &ev, Common::Event &event) {
 	// Set the scroll lock sticky flag
 	if (_scrollLock)
 		event.kbd.flags |= Common::KBD_SCRL;
+#endif
 
 	return true;
 }
@@ -564,6 +591,7 @@ bool SdlEventSource::handleMouseButtonUp(SDL_Event &ev, Common::Event &event) {
 }
 
 bool SdlEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
+#ifndef USE_SDL13
 	if (ev.jbutton.button == JOY_BUT_LMOUSE) {
 		event.type = Common::EVENT_LBUTTONDOWN;
 		processMouseEvent(event, _km.x, _km.y);
@@ -591,10 +619,12 @@ bool SdlEventSource::handleJoyButtonDown(SDL_Event &ev, Common::Event &event) {
 			break;
 		}
 	}
+#endif
 	return true;
 }
 
 bool SdlEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
+#ifndef USE_SDL13
 	if (ev.jbutton.button == JOY_BUT_LMOUSE) {
 		event.type = Common::EVENT_LBUTTONUP;
 		processMouseEvent(event, _km.x, _km.y);
@@ -622,10 +652,12 @@ bool SdlEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
 			break;
 		}
 	}
+#endif
 	return true;
 }
 
 bool SdlEventSource::handleJoyAxisMotion(SDL_Event &ev, Common::Event &event) {
+#ifndef USE_SDL13
 	int axis = ev.jaxis.value;
 	if ( axis > JOY_DEADZONE) {
 		axis -= JOY_DEADZONE;
@@ -669,6 +701,7 @@ bool SdlEventSource::handleJoyAxisMotion(SDL_Event &ev, Common::Event &event) {
 	}
 
 	processMouseEvent(event, _km.x, _km.y);
+#endif
 
 	return true;
 }
@@ -742,10 +775,12 @@ bool SdlEventSource::remapKey(SDL_Event &ev, Common::Event &event) {
 }
 
 void SdlEventSource::toggleMouseGrab() {
+#ifndef USE_SDL13
 	if (SDL_WM_GrabInput(SDL_GRAB_QUERY) == SDL_GRAB_OFF)
 		SDL_WM_GrabInput(SDL_GRAB_ON);
 	else
 		SDL_WM_GrabInput(SDL_GRAB_OFF);
+#endif
 }
 
 void SdlEventSource::resetKeyboadEmulation(int16 x_max, int16 y_max) {

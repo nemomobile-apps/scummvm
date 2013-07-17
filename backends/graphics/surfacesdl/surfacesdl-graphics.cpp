@@ -22,6 +22,8 @@
 
 #include "common/scummsys.h"
 
+#include <GLES/gl.h>
+
 #if defined(SDL_BACKEND)
 
 #include "backends/graphics/surfacesdl/surfacesdl-graphics.h"
@@ -41,6 +43,67 @@
 #include "graphics/scaler/aspect.h"
 #include "graphics/surface.h"
 #include "gui/EventRecorder.h"
+
+void
+render_surface(SDL_Surface *surface)
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_TEXTURE_2D);
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+
+    float vtxcoords[] = {
+        -1, -1,
+        -1, +1,
+        +1, -1,
+        +1, +1,
+    };
+
+    float texcoords[] = {
+        0, 1,
+        0, 0,
+        1, 1,
+        1, 0,
+    };
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    SDL_PixelFormat fmt;
+    memset(&fmt, 0, sizeof(fmt));
+    fmt.format = SDL_PIXELFORMAT_RGB888;
+    fmt.BitsPerPixel = 24;
+    fmt.BytesPerPixel = 3;
+    fmt.Rmask = 0x0000ff;
+    fmt.Gmask = 0x00ff00;
+    fmt.Bmask = 0xff0000;
+    fmt.Amask = 0x000000;
+
+    SDL_Surface *tmp = SDL_ConvertSurface(surface, &fmt, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tmp->w, tmp->h, 0,
+            GL_RGB, GL_UNSIGNED_BYTE, tmp->pixels);
+    SDL_FreeSurface(tmp);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, vtxcoords);
+    glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+
+    glColor4f(1.0, 1.0, 1.0, 1.0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDeleteTextures(1, &texture);
+
+    glDisable(GL_TEXTURE_2D);
+}
 
 static const OSystem::GraphicsMode s_supportedGraphicsModes[] = {
 	{"1x", _s("Normal (no scaling)"), GFX_NORMAL},
@@ -122,7 +185,7 @@ SurfaceSdlGraphicsManager::SurfaceSdlGraphicsManager(SdlEventSource *sdlEventSou
 #ifdef USE_OSD
 	_osdSurface(0), _osdAlpha(SDL_ALPHA_TRANSPARENT), _osdFadeStartTime(0),
 #endif
-	_hwscreen(0), _screen(0), _tmpscreen(0),
+	_hwscreen(0), _hwwindow(0), _screen(0), _tmpscreen(0),
 #ifdef USE_RGB_COLOR
 	_screenFormat(Graphics::PixelFormat::createFormatCLUT8()),
 	_cursorFormat(Graphics::PixelFormat::createFormatCLUT8()),
@@ -148,7 +211,9 @@ SurfaceSdlGraphicsManager::SurfaceSdlGraphicsManager(SdlEventSource *sdlEventSou
 
 	// This is also called in initSDL(), but initializing graphics
 	// may reset it.
+#ifndef USE_SDL13
 	SDL_EnableUNICODE(1);
+#endif
 
 	// allocate palette storage
 	_currentPalette = (SDL_Color *)calloc(sizeof(SDL_Color), 256);
@@ -237,8 +302,10 @@ void SurfaceSdlGraphicsManager::setFeatureState(OSystem::Feature f, bool enable)
 		blitCursor();
 		break;
 	case OSystem::kFeatureIconifyWindow:
+#ifndef USE_SDL13
 		if (enable)
 			SDL_WM_IconifyWindow();
+#endif
 		break;
 	default:
 		break;
@@ -677,7 +744,7 @@ static void fixupResolutionForAspectRatio(AspectRatio desiredAspectRatio, int &w
 
 	if (desiredAspectRatio.isAuto())
 		return;
-
+#if 0
 	int kw = desiredAspectRatio.kw();
 	int kh = desiredAspectRatio.kh();
 
@@ -711,6 +778,9 @@ static void fixupResolutionForAspectRatio(AspectRatio desiredAspectRatio, int &w
 	}
 	width = bestMode->w;
 	height = bestMode->h;
+#endif
+        width = 800;
+        height = 480;
 }
 
 bool SurfaceSdlGraphicsManager::loadGFXMode() {
@@ -753,11 +823,8 @@ bool SurfaceSdlGraphicsManager::loadGFXMode() {
 		error("allocating _screen failed");
 #endif
 
-	// SDL 1.2 palettes default to all black,
-	// SDL 1.3 palettes default to all white,
-	// Thus set our own default palette to all black.
-	// SDL_SetColors does nothing for non indexed surfaces.
-	SDL_SetColors(_screen, _currentPalette, 0, 256);
+        if (_screen->format->palette)
+            SDL_SetPaletteColors(_screen->format->palette, _currentPalette, 0, 256);
 
 	//
 	// Create the surface that contains the scaled graphics in 16 bit mode
@@ -776,9 +843,25 @@ bool SurfaceSdlGraphicsManager::loadGFXMode() {
 	} else
 #endif
 		{
+#ifdef USE_SDL13
+                    _hwwindow = SDL_CreateWindow("ScummVM",
+                            SDL_WINDOWPOS_CENTERED,
+                            SDL_WINDOWPOS_CENTERED,
+                            800, 480,
+                            //_videoMode.hardwareWidth,
+                            //_videoMode.hardwareHeight,
+                            //_videoMode.fullscreen
+                            SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+                    SDL_GL_CreateContext(_hwwindow);
+                    assert(_hwwindow != NULL);
+                    int w, h;
+                    SDL_GetWindowSize(_hwwindow, &w, &h);
+                    _hwscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16, 0, 0, 0, 0);
+#else
 		_hwscreen = SDL_SetVideoMode(_videoMode.hardwareWidth, _videoMode.hardwareHeight, 16,
 			_videoMode.fullscreen ? (SDL_FULLSCREEN|SDL_SWSURFACE) : SDL_SWSURFACE
 			);
+#endif
 	}
 
 #ifdef USE_RGB_COLOR
@@ -845,7 +928,7 @@ bool SurfaceSdlGraphicsManager::loadGFXMode() {
 		error("allocating _tmpscreen2 failed");
 
 #ifdef USE_OSD
-	_osdSurface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA,
+	_osdSurface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_RLEACCEL /*| SDL_SRCCOLORKEY | SDL_SRCALPHA*/,
 						_hwscreen->w,
 						_hwscreen->h,
 						16,
@@ -855,7 +938,7 @@ bool SurfaceSdlGraphicsManager::loadGFXMode() {
 						_hwscreen->format->Amask);
 	if (_osdSurface == NULL)
 		error("allocating _osdSurface failed");
-	SDL_SetColorKey(_osdSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, kOSDColorKey);
+	SDL_SetColorKey(_osdSurface, SDL_RLEACCEL /*| SDL_SRCCOLORKEY | SDL_SRCALPHA*/, kOSDColorKey);
 #endif
 
 	_eventSource->resetKeyboadEmulation(
@@ -876,6 +959,11 @@ void SurfaceSdlGraphicsManager::unloadGFXMode() {
 		SDL_FreeSurface(_screen);
 		_screen = NULL;
 	}
+
+        if (_hwwindow) {
+            SDL_DestroyWindow(_hwwindow);
+            _hwwindow = NULL;
+        }
 
 	if (_hwscreen) {
 		SDL_FreeSurface(_hwscreen);
@@ -919,6 +1007,7 @@ bool SurfaceSdlGraphicsManager::hotswapGFXMode() {
 
 	// Release the HW screen surface
 	SDL_FreeSurface(_hwscreen); _hwscreen = NULL;
+        SDL_DestroyWindow(_hwwindow); _hwwindow = NULL;
 
 	SDL_FreeSurface(_tmpscreen); _tmpscreen = NULL;
 	SDL_FreeSurface(_tmpscreen2); _tmpscreen2 = NULL;
@@ -939,7 +1028,8 @@ bool SurfaceSdlGraphicsManager::hotswapGFXMode() {
 	}
 
 	// reset palette
-	SDL_SetColors(_screen, _currentPalette, 0, 256);
+	if (_screen->format->palette)
+            SDL_SetPaletteColors(_screen->format->palette, _currentPalette, 0, 256);
 
 	// Restore old screen content
 	SDL_BlitSurface(old_screen, NULL, _screen, NULL);
@@ -996,9 +1086,10 @@ void SurfaceSdlGraphicsManager::internUpdateScreen() {
 	// Check whether the palette was changed in the meantime and update the
 	// screen surface accordingly.
 	if (_screen && _paletteDirtyEnd != 0) {
-		SDL_SetColors(_screen, _currentPalette + _paletteDirtyStart,
-			_paletteDirtyStart,
-			_paletteDirtyEnd - _paletteDirtyStart);
+                if (_screen->format->palette)
+                    SDL_SetPaletteColors(_screen->format->palette, _currentPalette + _paletteDirtyStart,
+                            _paletteDirtyStart,
+                            _paletteDirtyEnd - _paletteDirtyStart);
 
 		_paletteDirtyEnd = 0;
 
@@ -1019,7 +1110,8 @@ void SurfaceSdlGraphicsManager::internUpdateScreen() {
 				const int startAlpha = SDL_ALPHA_TRANSPARENT + kOSDInitialAlpha * (SDL_ALPHA_OPAQUE - SDL_ALPHA_TRANSPARENT) / 100;
 				_osdAlpha = startAlpha + diff * (SDL_ALPHA_TRANSPARENT - startAlpha) / kOSDFadeOutDuration;
 			}
-			SDL_SetAlpha(_osdSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, _osdAlpha);
+			//SDL_SetAlpha(_osdSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, _osdAlpha);
+                        SDL_SetSurfaceAlphaMod(_osdSurface, _osdAlpha);
 			_forceFull = true;
 		}
 	}
@@ -1202,7 +1294,12 @@ void SurfaceSdlGraphicsManager::internUpdateScreen() {
 
 		// Finally, blit all our changes to the screen
 		if (!_displayDisabled) {
-			SDL_UpdateRects(_hwscreen, _numDirtyRects, _dirtyRectList);
+#ifdef USE_SDL13
+                    render_surface(_hwscreen);
+                    SDL_GL_SwapWindow(_hwwindow);
+#else
+                    SDL_UpdateRects(_hwscreen, _numDirtyRects, _dirtyRectList);
+#endif
 		}
 	}
 
@@ -1706,8 +1803,8 @@ void SurfaceSdlGraphicsManager::setMousePos(int x, int y) {
 }
 
 void SurfaceSdlGraphicsManager::warpMouse(int x, int y) {
+#ifndef USE_SDL13
 	int y1 = y;
-
 	// Don't change actual mouse position, when mouse is outside of our window (in case of windowed mode)
 	if (!(SDL_GetAppState( ) & SDL_APPMOUSEFOCUS)) {
 		setMousePos(x, y); // but change game cursor position
@@ -1732,6 +1829,7 @@ void SurfaceSdlGraphicsManager::warpMouse(int x, int y) {
 
 		setMousePos(x, y);
 	}
+#endif
 }
 
 void SurfaceSdlGraphicsManager::setMouseCursor(const void *buf, uint w, uint h, int hotspot_x, int hotspot_y, uint32 keycolor, bool dontScale, const Graphics::PixelFormat *format) {
@@ -1765,7 +1863,7 @@ void SurfaceSdlGraphicsManager::setMouseCursor(const void *buf, uint w, uint h, 
 			SDL_FreeSurface(_mouseOrigSurface);
 
 		// Allocate bigger surface because AdvMame2x adds black pixel at [0,0]
-		_mouseOrigSurface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA,
+		_mouseOrigSurface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_RLEACCEL /*| SDL_SRCCOLORKEY | SDL_SRCALPHA*/,
 						_mouseCurState.w + 2,
 						_mouseCurState.h + 2,
 						16,
@@ -1776,7 +1874,7 @@ void SurfaceSdlGraphicsManager::setMouseCursor(const void *buf, uint w, uint h, 
 
 		if (_mouseOrigSurface == NULL)
 			error("allocating _mouseOrigSurface failed");
-		SDL_SetColorKey(_mouseOrigSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, kMouseColorKey);
+		SDL_SetColorKey(_mouseOrigSurface, SDL_RLEACCEL /*| SDL_SRCCOLORKEY | SDL_SRCALPHA*/, kMouseColorKey);
 	}
 
 	free(_mouseData);
@@ -1902,7 +2000,7 @@ void SurfaceSdlGraphicsManager::blitCursor() {
 		if (_mouseSurface)
 			SDL_FreeSurface(_mouseSurface);
 
-		_mouseSurface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA,
+		_mouseSurface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_RLEACCEL /*| SDL_SRCCOLORKEY | SDL_SRCALPHA*/,
 						_mouseCurState.rW,
 						_mouseCurState.rH,
 						16,
@@ -1914,7 +2012,7 @@ void SurfaceSdlGraphicsManager::blitCursor() {
 		if (_mouseSurface == NULL)
 			error("allocating _mouseSurface failed");
 
-		SDL_SetColorKey(_mouseSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, kMouseColorKey);
+		SDL_SetColorKey(_mouseSurface, SDL_RLEACCEL /*| SDL_SRCCOLORKEY | SDL_SRCALPHA*/, kMouseColorKey);
 	}
 
 	SDL_LockSurface(_mouseSurface);
@@ -2129,7 +2227,8 @@ void SurfaceSdlGraphicsManager::displayMessageOnOSD(const char *msg) {
 	// Init the OSD display parameters, and the fade out
 	_osdAlpha = SDL_ALPHA_TRANSPARENT + kOSDInitialAlpha * (SDL_ALPHA_OPAQUE - SDL_ALPHA_TRANSPARENT) / 100;
 	_osdFadeStartTime = SDL_GetTicks() + kOSDFadeOutDelay;
-	SDL_SetAlpha(_osdSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, _osdAlpha);
+	//SDL_SetAlpha(_osdSurface, SDL_RLEACCEL | SDL_SRCCOLORKEY | SDL_SRCALPHA, _osdAlpha);
+        SDL_SetSurfaceAlphaMod(_osdSurface, _osdAlpha);
 
 	// Ensure a full redraw takes place next time the screen is updated
 	_forceFull = true;
@@ -2165,6 +2264,7 @@ bool SurfaceSdlGraphicsManager::handleScalerHotkeys(Common::KeyCode key) {
 
 	int newMode = -1;
 	int factor = _videoMode.scaleFactor - 1;
+#if 0
 	SDLKey sdlKey = (SDLKey)key;
 
 	// Increase/decrease the scale factor
@@ -2189,6 +2289,7 @@ bool SurfaceSdlGraphicsManager::handleScalerHotkeys(Common::KeyCode key) {
 		}
 		newMode = s_gfxModeSwitchTable[_scalerType][factor];
 	}
+#endif
 
 	if (newMode >= 0) {
 		beginGFXTransaction();

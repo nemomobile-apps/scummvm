@@ -165,6 +165,8 @@ protected:
 
 	/** Hardware screen */
 	SDL_Surface *_hwscreen;
+        SDL_Window *_hwwindow;
+        SDL_Renderer *_hwrenderer;
 
 	/** Unseen game screen */
 	SDL_Surface *_screen;
