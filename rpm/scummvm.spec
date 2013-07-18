@@ -21,6 +21,8 @@ BuildRequires: flac-devel
 BuildRequires: zlib-devel
 BuildRequires: SDL2-devel
 BuildRequires: freetype-devel
+BuildRequires: pkgconfig(glesv1_cm)
+BuildRequires: pkgconfig(egl)
 
 #------------------------------------------------------------------------------
 #   Description
