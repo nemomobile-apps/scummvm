@@ -6,14 +6,14 @@
 #------------------------------------------------------------------------------
 #   Prologue information
 #------------------------------------------------------------------------------
-Name		: scummvm
-Version		: 1.7.0git
-Release		: 1
-Summary		: Graphic adventure game interpreter
-Group		: Interpreters
-License		: GPL
-Url             : http://www.scummvm.org
-Source		: %{name}-%{version}.tar.bz2
+Name: scummvm
+Version: 1.7.0git
+Release: 1
+Summary: Graphic adventure game interpreter
+Group: Interpreters
+License: GPL
+Url: http://www.scummvm.org
+Source: %{name}-%{version}.tar.bz2
 BuildRequires: desktop-file-utils
 BuildRequires: libogg-devel
 BuildRequires: libvorbis-devel
