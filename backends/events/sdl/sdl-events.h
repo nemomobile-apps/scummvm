@@ -70,13 +70,47 @@ protected:
 
 	//@}
 
+        struct Pos {
+            Pos() : x(0), y(0) {}
+            Pos(int x, int y) : x(x), y(y) {}
+
+            void clip(int width, int height)
+            {
+                if (x < 0) x = 0;
+                if (x > width) x = width;
+                if (y < 0) y = 0;
+                if (y > height) y = height;
+            }
+
+            Pos rotated()
+            {
+                return Pos(y, -x);
+            }
+
+            Pos operator-(const Pos &other) {
+                return Pos(x - other.x, y - other.y);
+            }
+
+            Pos &operator+=(const Pos &other) {
+                x += other.x;
+                y += other.y;
+                return *this;
+            }
+
+            float length() {
+                return sqrtf(x * x + y * y);
+            }
+
+            int x;
+            int y;
+        };
+
         struct TouchpadMode {
-            struct {
-                int x, y;
-            } pos;
-            struct {
-                int x, y;
-            } old;
+            Pos begin;
+            Uint32 started;
+            bool moved;
+            Pos pos;
+            Pos old;
         };
         TouchpadMode _tp;
 

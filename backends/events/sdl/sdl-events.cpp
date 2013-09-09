@@ -650,40 +650,71 @@ bool SdlEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
 bool
 SdlEventSource::handleFingerEvent(SDL_Event &ev, Common::Event &event)
 {
+    Pos pos = Pos(ev.tfinger.x, ev.tfinger.y);
+    Pos diff = pos - _tp.old;
+    Uint32 now = SDL_GetTicks();
+    Uint32 ms_since_press = now - _tp.started;
+
     switch (ev.type) {
         case SDL_FINGERDOWN:
-                _tp.old.x = ev.tfinger.x;
-                _tp.old.y = ev.tfinger.y;
-		event.type = Common::EVENT_LBUTTONDOWN;
-                processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                _tp.begin = _tp.pos;
+                _tp.started = now;
+                _tp.moved = false;
+                _tp.old = pos;
                 return true;
 
         case SDL_FINGERMOTION:
-                struct {
-                    int x;
-                    int y;
-                } diff;
-                diff.x = (ev.tfinger.x - _tp.old.x);
-                diff.y = (ev.tfinger.y - _tp.old.y);
+                if (!_tp.moved && diff.length() < 10) {
+                    // ignore initial movement if too small
+                    return true;
+                }
 
-                // rotated output
-                _tp.pos.x += diff.y;
-                _tp.pos.y += -diff.x;
+                if (!_tp.moved) {
+                    //event.type = Common::EVENT_LBUTTONDOWN;
+                    //processMouseEvent(event, _tp.begin.x, _tp.begin.y);
+                }
 
-                _tp.pos.x = MIN(640, MAX(0, _tp.pos.x));
-                _tp.pos.y = MIN(400, MAX(0, _tp.pos.y));
+                _tp.moved = true;
+                _tp.pos += diff.rotated();
+                _tp.pos.clip(640, 400);
+                _tp.old = pos;
 
-                _tp.old.x = ev.tfinger.x;
-                _tp.old.y = ev.tfinger.y;
                 event.type = Common::EVENT_MOUSEMOVE;
                 processMouseEvent(event, _tp.pos.x, _tp.pos.y);
                 return true;
 
         case SDL_FINGERUP:
-                _tp.pos.x += (ev.tfinger.x - _tp.old.x);
-                _tp.pos.y += (ev.tfinger.y - _tp.old.y);
-		event.type = Common::EVENT_LBUTTONUP;
-                processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                if (_tp.moved) {
+                    _tp.pos += diff.rotated();
+                    _tp.pos.clip(640, 400);
+
+                    //event.type = Common::EVENT_LBUTTONUP;
+                    //processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                    return true;
+                }
+
+                // at this point, not moved - check tap duration
+                if (ms_since_press > 1000) {
+                    // middle click
+                    ev.button.button = SDL_BUTTON_MIDDLE;
+                } else if (ms_since_press > 500) {
+                    // right click
+                    ev.button.button = SDL_BUTTON_RIGHT;
+                } else {
+                    // left click
+                    ev.button.button = SDL_BUTTON_LEFT;
+
+                }
+
+                ev.button.x = _tp.pos.x;
+                ev.button.y = _tp.pos.y;
+
+                ev.type = SDL_MOUSEBUTTONDOWN;
+                SDL_PushEvent(&ev);
+
+                ev.type = SDL_MOUSEBUTTONUP;
+                SDL_PushEvent(&ev);
+
                 return true;
     }
 
