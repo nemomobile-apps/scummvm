@@ -109,8 +109,11 @@ protected:
             Pos begin;
             Uint32 started;
             bool moved;
+            bool dragging;
             Pos pos;
             Pos old;
+            int fingers;
+            int max_fingers;
         };
         TouchpadMode _tp;
 

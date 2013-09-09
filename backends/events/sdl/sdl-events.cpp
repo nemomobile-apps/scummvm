@@ -55,6 +55,9 @@ SdlEventSource::SdlEventSource()
 	memset(&_km, 0, sizeof(_km));
         memset(&_tp, 0, sizeof(_tp));
 
+        // Load virtual keyboard
+        ConfMan.set("vkeybdpath", DATA_PATH);
+
 	int joystick_num = ConfMan.getInt("joystick_num");
 	if (joystick_num > -1) {
 		// Initialize SDL joystick subsystem
@@ -657,21 +660,36 @@ SdlEventSource::handleFingerEvent(SDL_Event &ev, Common::Event &event)
 
     switch (ev.type) {
         case SDL_FINGERDOWN:
-                _tp.begin = _tp.pos;
-                _tp.started = now;
-                _tp.moved = false;
-                _tp.old = pos;
+                if (_tp.fingers == 0) {
+                    _tp.begin = _tp.pos;
+                    _tp.started = now;
+                    _tp.moved = false;
+                    _tp.dragging = false;
+                    _tp.old = pos;
+                    _tp.max_fingers = 0;
+                }
+
+                _tp.fingers++;
+                _tp.max_fingers++;
                 return true;
 
         case SDL_FINGERMOTION:
+                if (_tp.fingers != 1) {
+                    return true;
+                }
+
                 if (!_tp.moved && diff.length() < 10) {
                     // ignore initial movement if too small
                     return true;
                 }
 
-                if (!_tp.moved) {
-                    //event.type = Common::EVENT_LBUTTONDOWN;
-                    //processMouseEvent(event, _tp.begin.x, _tp.begin.y);
+                if (!_tp.moved && !_tp.dragging && ms_since_press > 1000) {
+                    // to do left mouse button drag, single-touch (without
+                    // moving) for > 1 second, then start dragging
+                    _tp.dragging = true;
+                    event.type = Common::EVENT_LBUTTONDOWN;
+                    processMouseEvent(event, _tp.begin.x, _tp.begin.y);
+                    return true;
                 }
 
                 _tp.moved = true;
@@ -684,16 +702,41 @@ SdlEventSource::handleFingerEvent(SDL_Event &ev, Common::Event &event)
                 return true;
 
         case SDL_FINGERUP:
-                if (_tp.moved) {
-                    _tp.pos += diff.rotated();
-                    _tp.pos.clip(640, 400);
+                _tp.fingers--;
 
-                    //event.type = Common::EVENT_LBUTTONUP;
-                    //processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                if (_tp.fingers > 0) {
+                    // only process when all fingers are lifted
                     return true;
                 }
 
-                // at this point, not moved - check tap duration
+                if (_tp.dragging) {
+                    // if we're in dragging mode, this releases the mouse
+                    event.type = Common::EVENT_LBUTTONUP;
+                    processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                    return true;
+                }
+
+                switch (_tp.max_fingers) {
+                    case 2:
+                        // two-finger tap = show/hide virtual keyboard
+                        event.type = Common::EVENT_VIRTUAL_KEYBOARD;
+                        return true;
+                    case 3:
+                        // three-finger tap = show/hide main menu
+                        event.type = Common::EVENT_MAINMENU;
+                        return true;
+                    default:
+                        break;
+                }
+
+                if (_tp.moved) {
+                    _tp.pos += diff.rotated();
+                    _tp.pos.clip(640, 400);
+                    return true;
+                }
+
+                // we have not moved and there has only been one touch - assume this
+                // is a tap, mouse button depends on tap duration
                 if (ms_since_press > 1000) {
                     // middle click
                     ev.button.button = SDL_BUTTON_MIDDLE;

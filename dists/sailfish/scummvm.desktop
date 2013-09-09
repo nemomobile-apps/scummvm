@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=ScummVM
+Exec=invoker --single-instance --type=e /usr/bin/scummvm
+Icon=/usr/share/scummvm/icon-launcher-scummvm.png
+Type=Application
+Categories=Game;AdventureGame;

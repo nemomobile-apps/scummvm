@@ -44,18 +44,17 @@ games) and many more. See http://www.scummvm.org for a full compatibility list.
 %setup -q
 
 %build
-./configure --prefix=%{_prefix} --enable-release
+./configure --prefix=%{_prefix} --enable-release --enable-vkeybd
 make
 
 %install
 install -m755 -D scummvm %{buildroot}%{_bindir}/scummvm
 install -m644 -D dists/scummvm.6 %{buildroot}%{_mandir}/man6/scummvm.6
-install -m644 -D icons/scummvm.xpm %{buildroot}%{_datadir}/pixmaps/scummvm.xpm
-install -m644 -D icons/scummvm.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/scummvm.svg
-install -m644 -D dists/redhat/scummvm48.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/scummvm.png
+install -m644 -D dists/sailfish/icon-launcher-scummvm.png %{buildroot}%{_datadir}/scummvm/icon-launcher-scummvm.png
 install -m644 -D gui/themes/scummclassic.zip %{buildroot}%{_datadir}/scummvm/scummclassic.zip
 install -m644 -D gui/themes/scummmodern.zip %{buildroot}%{_datadir}/scummvm/scummmodern.zip
 install -m644 -D gui/themes/translations.dat %{buildroot}%{_datadir}/scummvm/translations.dat
+install -m644 -D backends/vkeybd/packs/vkeybd_default.zip %{buildroot}%{_datadir}/scummvm/vkeybd_default.zip
 install -m644 -D dists/pred.dic %{buildroot}%{_datadir}/scummvm/pred.dic
 install -m644 -D dists/engine-data/kyra.dat %{buildroot}%{_datadir}/scummvm/kyra.dat
 install -m644 -D dists/engine-data/lure.dat %{buildroot}%{_datadir}/scummvm/lure.dat
@@ -66,7 +65,7 @@ install -m644 -D dists/engine-data/teenagent.dat %{buildroot}%{_datadir}/scummvm
 install -m644 -D dists/engine-data/hugo.dat %{buildroot}%{_datadir}/scummvm/hugo.dat
 install -m644 -D dists/engine-data/tony.dat %{buildroot}%{_datadir}/scummvm/tony.dat
 install -m644 -D dists/engine-data/toon.dat %{buildroot}%{_datadir}/scummvm/toon.dat
-desktop-file-install --vendor scummvm --dir=%{buildroot}/%{_datadir}/applications dists/scummvm.desktop
+desktop-file-install --vendor scummvm --dir=%{buildroot}/%{_datadir}/applications dists/sailfish/scummvm.desktop
 
 %clean
 rm -Rf ${RPM_BUILD_ROOT}
@@ -91,10 +90,9 @@ rm -Rf ${RPM_BUILD_ROOT}
 %doc AUTHORS README NEWS COPYING COPYING.LGPL COPYING.FREEFONT COPYING.BSD COPYRIGHT
 %attr(0755,root,root)%{_bindir}/scummvm
 %{_datadir}/applications/*
-%{_datadir}/pixmaps/scummvm.xpm
-%{_datadir}/icons/hicolor/48x48/apps/scummvm.png
-%{_datadir}/icons/hicolor/scalable/apps/scummvm.svg
+%{_datadir}/scummvm/icon-launcher-scummvm.png
 %{_datadir}/scummvm/scumm*.zip
+%{_datadir}/scummvm/vkeybd_default.zip
 %{_datadir}/scummvm/translations.dat
 %{_datadir}/scummvm/pred.dic
 %{_datadir}/scummvm/kyra.dat
@@ -107,4 +105,3 @@ rm -Rf ${RPM_BUILD_ROOT}
 %{_datadir}/scummvm/tony.dat
 %{_datadir}/scummvm/toon.dat
 %{_mandir}/man6/scummvm.6*
-
