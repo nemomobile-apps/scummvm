@@ -23,6 +23,7 @@
 #include "common/scummsys.h"
 
 #include <GLES/gl.h>
+#include <algorithm>
 
 #if defined(SDL_BACKEND)
 
@@ -50,6 +51,11 @@ render_surface(SDL_Surface *surface)
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_TEXTURE_2D);
 
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glRotatef(-90.f, 0.f, 0.f, 1.f);
+    glScalef((640.f / 400.f) / (960.f / 540.f), 1.f, 1.f);
+
     GLuint texture;
     glGenTextures(1, &texture);
 
@@ -68,8 +74,8 @@ render_surface(SDL_Surface *surface)
     };
 
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -779,8 +785,8 @@ static void fixupResolutionForAspectRatio(AspectRatio desiredAspectRatio, int &w
 	width = bestMode->w;
 	height = bestMode->h;
 #endif
-        width = 800;
-        height = 480;
+        width = 640;
+        height = 400;
 }
 
 bool SurfaceSdlGraphicsManager::loadGFXMode() {
@@ -847,15 +853,15 @@ bool SurfaceSdlGraphicsManager::loadGFXMode() {
                     _hwwindow = SDL_CreateWindow("ScummVM",
                             SDL_WINDOWPOS_CENTERED,
                             SDL_WINDOWPOS_CENTERED,
-                            800, 480,
-                            //_videoMode.hardwareWidth,
-                            //_videoMode.hardwareHeight,
-                            //_videoMode.fullscreen
+                            540, 960,
                             SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
                     SDL_GL_CreateContext(_hwwindow);
                     assert(_hwwindow != NULL);
                     int w, h;
                     SDL_GetWindowSize(_hwwindow, &w, &h);
+                    //std::swap(w, h);
+                    w = 640;
+                    h = 400;
                     _hwscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 16, 0, 0, 0, 0);
 #else
 		_hwscreen = SDL_SetVideoMode(_videoMode.hardwareWidth, _videoMode.hardwareHeight, 16,

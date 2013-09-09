@@ -53,6 +53,7 @@ SdlEventSource::SdlEventSource()
     : EventSource(), _scrollLock(false), _joystick(0), _lastScreenID(0), _graphicsManager(0) {
 	// Reset mouse state
 	memset(&_km, 0, sizeof(_km));
+        memset(&_tp, 0, sizeof(_tp));
 
 	int joystick_num = ConfMan.getInt("joystick_num");
 	if (joystick_num > -1) {
@@ -380,20 +381,10 @@ bool SdlEventSource::dispatchSDLEvent(SDL_Event &ev, Common::Event &event) {
 		return handleKeyDown(ev, event);
 	case SDL_KEYUP:
 		return handleKeyUp(ev, event);
-
-        case SDL_FINGERUP:
-		event.type = Common::EVENT_LBUTTONUP;
-                processMouseEvent(event, ev.tfinger.x, ev.tfinger.y);
-                return true;
         case SDL_FINGERDOWN:
-		event.type = Common::EVENT_LBUTTONDOWN;
-                processMouseEvent(event, ev.tfinger.x, ev.tfinger.y);
-                return true;
         case SDL_FINGERMOTION:
-                event.type = Common::EVENT_MOUSEMOVE;
-                processMouseEvent(event, ev.tfinger.x, ev.tfinger.y);
-                return true;
-
+        case SDL_FINGERUP:
+                return handleFingerEvent(ev, event);
 	case SDL_MOUSEMOTION:
 		return handleMouseMotion(ev, event);
 	case SDL_MOUSEBUTTONDOWN:
@@ -654,6 +645,49 @@ bool SdlEventSource::handleJoyButtonUp(SDL_Event &ev, Common::Event &event) {
 	}
 #endif
 	return true;
+}
+
+bool
+SdlEventSource::handleFingerEvent(SDL_Event &ev, Common::Event &event)
+{
+    switch (ev.type) {
+        case SDL_FINGERDOWN:
+                _tp.old.x = ev.tfinger.x;
+                _tp.old.y = ev.tfinger.y;
+		event.type = Common::EVENT_LBUTTONDOWN;
+                processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                return true;
+
+        case SDL_FINGERMOTION:
+                struct {
+                    int x;
+                    int y;
+                } diff;
+                diff.x = (ev.tfinger.x - _tp.old.x);
+                diff.y = (ev.tfinger.y - _tp.old.y);
+
+                // rotated output
+                _tp.pos.x += diff.y;
+                _tp.pos.y += -diff.x;
+
+                _tp.pos.x = MIN(640, MAX(0, _tp.pos.x));
+                _tp.pos.y = MIN(400, MAX(0, _tp.pos.y));
+
+                _tp.old.x = ev.tfinger.x;
+                _tp.old.y = ev.tfinger.y;
+                event.type = Common::EVENT_MOUSEMOVE;
+                processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                return true;
+
+        case SDL_FINGERUP:
+                _tp.pos.x += (ev.tfinger.x - _tp.old.x);
+                _tp.pos.y += (ev.tfinger.y - _tp.old.y);
+		event.type = Common::EVENT_LBUTTONUP;
+                processMouseEvent(event, _tp.pos.x, _tp.pos.y);
+                return true;
+    }
+
+    return false;
 }
 
 bool SdlEventSource::handleJoyAxisMotion(SDL_Event &ev, Common::Event &event) {

@@ -70,6 +70,16 @@ protected:
 
 	//@}
 
+        struct TouchpadMode {
+            struct {
+                int x, y;
+            } pos;
+            struct {
+                int x, y;
+            } old;
+        };
+        TouchpadMode _tp;
+
 	/** Scroll lock state - since SDL doesn't track it */
 	bool _scrollLock;
 
@@ -111,6 +121,7 @@ protected:
 	virtual bool handleJoyButtonDown(SDL_Event &ev, Common::Event &event);
 	virtual bool handleJoyButtonUp(SDL_Event &ev, Common::Event &event);
 	virtual bool handleJoyAxisMotion(SDL_Event &ev, Common::Event &event);
+        virtual bool handleFingerEvent(SDL_Event &ev, Common::Event &event);
 	virtual void handleKbdMouse();
 
 	//@}
